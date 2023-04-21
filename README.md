@@ -13,12 +13,12 @@ The possible solution for one of the interview task.
 - Предусмотреть равномерное заполнение серверов хранения
 
 ## Solution
-###Logical lever
+### Logical lever
 - [storage-server](internal/storageserver/storageserver.go): keeps chunks on physical volum. When stoarage-server starts it interact with chunk-server and register itself. Storage-server has two api endpoint for uploadin and downloading chunks.
 - [chunk-manager](internal/chunkmanager/chunkmanager.go): keeps information of chunks placement. It splits file into chunks. Chunks destributed between existed storage-servers.
 - [api-server](internal/apiserver/apiserver.go): handle incoming client requests. It interacts with chunk-manager requesting chunks distribution map for the given file and directly interaction with storage-servers downloading/uploading chunks. Api-server also split/combine file into/from chunks.
 
-###Service level
+### Service level
 There is two servers:
 - [storage-server](cmd/storage-server/main.go): exposes [storage-server](internal/storageserver/storageserver.go) API through HTTP via [http handler](internal/entrypoint/http/storageserver/handler.go)
 - [api-server](cmd/api-server/main.go): exposes [chunk-manager](internal/chunkmanager/chunkmanager.go) and [api-server](internal/apiserver/apiserver.go) API through HTTP via [http handler](internal/entrypoint/http/apiserver/handler.go)
@@ -27,7 +27,7 @@ Interaction between components implemented via http-clients called [endpoints](i
 Since logical components do not depend on server and client layers  the interaction can be easily changed to another protocol (gRPC/protobuf or own designed solution). HTTP interaction chosen because of simplicity and easily for implementation in the given timeframe for that test solution.
 
 ## How to run
-###Docker
+### Docker
 Built docker images:
 ```
 make docker-images
@@ -41,7 +41,7 @@ make docker-run-storage-server n=3
 make docker-run-storage-server n=4
 make docker-run-storage-server n=5
 ```
-###Golang
+### Golang
 ```
 make run-api
 make run-ss n=1
