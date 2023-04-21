@@ -71,11 +71,11 @@ make test-download
 ```
 
 ## Further development
-- Compact chunk storage
+- Compact chunk storage  
   Chunks can be combined together into one big files at the storage-server level. Storage-server need to keep addition mapping information about chunk/file/offset. Helps to iresuse the load on storage-server file system.
-- Establish heartbeat between storage-server and chunk-manager. 
+- Establish heartbeat between storage-server and chunk-manager  
   In case of connection lost in the given time chunk-manager can exclude storage-server from file distribution. 
-- Chunk replication 
+- Chunk replication  
   Keeps several copy of each chunk. Helps to increase FTT level. 
-- Healing/Redistributing
+- Healing/Redistributing  
   In case of emergensy (storage-server failure) recreate one of the lost copies and redistribute remaining chunks.
