@@ -71,6 +71,8 @@ make test-download
 ```
 
 ## Further development
+- Concurrent interaction  
+  Apiserver concurrently uploads/donwloads chunks from storage servers. Implement using goroutine.
 - Compact chunk storage  
   Chunks can be combined together into one big files at the storage-server level. Storage-server need to keep addition mapping information about chunk/file/offset. Helps to iresuse the load on storage-server file system.
 - Establish heartbeat between storage-server and chunk-manager  
