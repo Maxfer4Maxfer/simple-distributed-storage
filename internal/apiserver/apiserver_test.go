@@ -1,9 +1,11 @@
 package apiserver
 
 import (
+	"bytes"
 	"log"
 	"simple-storage/internal/chunkmanager"
 	"simple-storage/tests/mock"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -14,7 +16,7 @@ func TestAPIServer_PutObject(t *testing.T) {
 	tt := []struct {
 		filename string
 		chunks   []chunkmanager.Chunk
-		buf      []byte
+		buf      string
 	}{
 		{
 			filename: "file1",
@@ -22,7 +24,7 @@ func TestAPIServer_PutObject(t *testing.T) {
 				{ID: "id1", StorageServer: "0.0.0.0:9001"},
 				{ID: "id2", StorageServer: "0.0.0.0:9002"},
 			},
-			buf: []byte("Hello World!"),
+			buf: "Hello World!",
 		},
 	}
 
@@ -31,7 +33,7 @@ func TestAPIServer_PutObject(t *testing.T) {
 
 	for _, tc := range tt {
 		cm := mock.NewMockChunkManager(ctrl)
-		cm.EXPECT().SplitIntoChunks(tc.filename, len(tc.buf)).
+		cm.EXPECT().SplitIntoChunks(tc.filename, int64(len(tc.buf))).
 			Return(tc.chunks, nil).Times(1)
 
 		ssClientCreator := func(_ string) StorageServer {
@@ -43,7 +45,8 @@ func TestAPIServer_PutObject(t *testing.T) {
 
 		apiserver := New(log.Default(), Config{}, cm, ssClientCreator)
 
-		err := apiserver.PutObject(tc.filename, tc.buf)
+		r := strings.NewReader(tc.buf)
+		err := apiserver.PutObject(tc.filename, r, int64(len(tc.buf)))
 		require.NoError(t, err)
 	}
 }
@@ -51,10 +54,10 @@ func TestAPIServer_PutObject(t *testing.T) {
 func TestAPIServer_GetObject(t *testing.T) {
 	tt := []struct {
 		filename   string
-		filesize   int
+		filesize   int64
 		chunks     []chunkmanager.Chunk
 		ssResponce map[string][]byte
-		result     []byte
+		result     string
 	}{
 		{
 			filename: "file1",
@@ -67,7 +70,7 @@ func TestAPIServer_GetObject(t *testing.T) {
 				"chunkID1": []byte("Hello "),
 				"chunkID2": []byte("World!"),
 			},
-			result: []byte("Hello World!"),
+			result: "Hello World!",
 		},
 	}
 
@@ -95,8 +98,10 @@ func TestAPIServer_GetObject(t *testing.T) {
 
 		apiserver := New(log.Default(), Config{}, cm, ssClientCreator)
 
-		buf, err := apiserver.GetObject(tc.filename)
+		buf := new(bytes.Buffer)
+
+		err := apiserver.GetObject(tc.filename, buf)
 		require.NoError(t, err)
-		require.Equal(t, buf, tc.result)
+		require.Equal(t, buf.String(), tc.result)
 	}
 }

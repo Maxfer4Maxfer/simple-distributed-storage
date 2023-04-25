@@ -1,15 +1,17 @@
 package apiserver
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"log"
 	cm "simple-storage/internal/chunkmanager"
 	"simple-storage/internal/utils"
 )
 
 type ChunkManager interface {
-	SplitIntoChunks(filename string, size int) ([]cm.Chunk, error)
-	ChunksInfo(filename string) ([]cm.Chunk, int, error)
+	SplitIntoChunks(filename string, size int64) ([]cm.Chunk, error)
+	ChunksInfo(filename string) ([]cm.Chunk, int64, error)
 }
 
 type StorageServer interface {
@@ -45,21 +47,24 @@ func New(
 	}
 }
 
-func (s *APIServer) PutObject(filename string, buf []byte) error {
-	chunks, err := s.cm.SplitIntoChunks(filename, len(buf))
+func (s *APIServer) PutObject(filename string, r io.Reader, size int64) error {
+	chunks, err := s.cm.SplitIntoChunks(filename, size)
 	if err != nil {
 		return fmt.Errorf("failure to split file into chunks: %w", err)
 	}
 
-	chunkSize := utils.ChunkSize(len(buf), len(chunks))
-	offset := 0
+	chunkSize := utils.ChunkSize(size, len(chunks))
+	buf := make([]byte, chunkSize)
 
-	for i, chunk := range chunks {
+	for _, chunk := range chunks {
 		ss := s.storageServers.get(chunk.StorageServer)
 
-		offset = i * chunkSize
+		n, err := r.Read(buf)
+		if err != nil {
+			return fmt.Errorf("failure to read filename: %s: %w ", filename, err)
+		}
 
-		err := ss.UploadChunk(chunk.ID, buf[offset:min(offset+chunkSize, len(buf))])
+		err = ss.UploadChunk(chunk.ID, buf[:n])
 		if err != nil {
 			return fmt.Errorf("failure to upload "+
 				"filename: %s chunk: %s storage-server: %s: %w ",
@@ -70,28 +75,36 @@ func (s *APIServer) PutObject(filename string, buf []byte) error {
 	return nil
 }
 
-func (s *APIServer) GetObject(filename string) ([]byte, error) {
+func (s *APIServer) GetObject(filename string, w io.Writer) error {
 	chunks, filesize, err := s.cm.ChunksInfo(filename)
 	if err != nil {
-		return nil, fmt.Errorf("failure to get file's info: %w", err)
+		return fmt.Errorf("failure to get file's info: %w", err)
 	}
 
-	buf := make([]byte, filesize)
-	chunkSize := utils.ChunkSize(filesize, len(chunks))
-	offset := 0
+	chunksize := utils.ChunkSize(filesize, len(chunks))
+	buf := make([]byte, chunksize)
+	restsize := int(filesize)
 
-	for i, chunk := range chunks {
+	for _, chunk := range chunks {
 		ss := s.storageServers.get(chunk.StorageServer)
+		n := min(restsize, chunksize)
 
-		offset = i * chunkSize
-
-		err := ss.DownloadChunk(chunk.ID, buf[offset:min(offset+chunkSize, len(buf))])
+		err := ss.DownloadChunk(chunk.ID, buf[:n])
 		if err != nil {
-			return nil, fmt.Errorf("failure to download "+
-				"filename: %s chunk: %s storage-server: %s: %w ",
+			return fmt.Errorf("failure to download "+
+				"chunk: %s of filename: %s from storage-server: %s: %w",
 				filename, chunk.ID, chunk.StorageServer, err)
 		}
+
+		_, err = io.Copy(w, bytes.NewReader(buf[:n]))
+		if err != nil {
+			return fmt.Errorf("failure to upload "+
+				"chunk: %s of filename: %s from storage-server: %s: %w",
+				filename, chunk.ID, chunk.StorageServer, err)
+		}
+
+		restsize -= n
 	}
 
-	return buf, nil
+	return nil
 }

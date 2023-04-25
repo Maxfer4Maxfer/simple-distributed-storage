@@ -2,7 +2,7 @@ package handler
 
 import (
 	"errors"
-	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -12,8 +12,8 @@ import (
 )
 
 type APIServer interface {
-	PutObject(filename string, buf []byte) error
-	GetObject(filename string) ([]byte, error)
+	PutObject(filename string, r io.Reader, size int64) error
+	GetObject(filename string, w io.Writer) error
 }
 
 type ChunkManager interface {
@@ -72,14 +72,12 @@ func (han *Handler) handleDownload() http.HandlerFunc {
 			return
 		}
 
-		buf, err := han.apiServer.GetObject(chunkID[0])
+		err := han.apiServer.GetObject(chunkID[0], w)
 		if err != nil {
 			han.ResponseWithError(w, r, err)
 
 			return
 		}
-
-		han.ResponseWithData(w, r, buf)
 	})
 }
 
@@ -93,17 +91,8 @@ func (han *Handler) handleUpload() http.HandlerFunc {
 			return
 		}
 		defer file.Close()
-
-		buf := make([]byte, header.Size)
-
-		_, err = file.Read(buf)
-		if err != nil {
-			han.ResponseWithError(w, r,
-				fmt.Errorf("cannot read incomming file: %w", err))
-			return
-		}
-
-		err = han.apiServer.PutObject(header.Filename, buf)
+ 
+		err = han.apiServer.PutObject(header.Filename, file, header.Size)
 		if err != nil {
 			han.ResponseWithError(w, r, err)
 
