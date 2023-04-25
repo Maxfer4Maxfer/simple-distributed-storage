@@ -64,7 +64,7 @@ func (han *Handler) HandleCORS(next http.Handler) http.HandlerFunc {
 
 // ResponseWithError helps to form the right response in case of error.
 func (han *Handler) ResponseWithError(
-	w http.ResponseWriter, r *http.Request, err error,
+	w http.ResponseWriter, r *http.Request, err error, statusCode int,
 ) {
 	res := struct {
 		Error string `json:"error"`
@@ -72,7 +72,7 @@ func (han *Handler) ResponseWithError(
 
 	res.Error = err.Error()
 
-	w.WriteHeader(http.StatusInternalServerError)
+	w.WriteHeader(statusCode)
 
 	w.Header().Set("Content-Type", "application/json")
 

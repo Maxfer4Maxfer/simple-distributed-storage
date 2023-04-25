@@ -57,13 +57,14 @@ func (han *Handler) handleDownload() http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		chunkID, ok := r.URL.Query()["id"]
 		if !ok {
-			han.ResponseWithError(w, r, errors.New("id should be set"))
+			han.ResponseWithError(
+				w, r, errors.New("id should be set"), http.StatusBadRequest)
 			return
 		}
 
 		buf, err := han.storageServer.DownloadChunk(chunkID[0])
 		if err != nil {
-			han.ResponseWithError(w, r, err)
+			han.ResponseWithError(w, r, err, http.StatusInternalServerError)
 
 			return
 		}
@@ -78,7 +79,7 @@ func (han *Handler) handleUpload() http.HandlerFunc {
 
 		file, header, err := r.FormFile("chunk")
 		if err != nil {
-			han.ResponseWithError(w, r, err)
+			han.ResponseWithError(w, r, err, http.StatusBadRequest)
 			return
 		}
 
@@ -86,7 +87,7 @@ func (han *Handler) handleUpload() http.HandlerFunc {
 
 		err = han.storageServer.UploadChunk(header.Filename, file)
 		if err != nil {
-			han.ResponseWithError(w, r, err)
+			han.ResponseWithError(w, r, err, http.StatusInternalServerError)
 
 			return
 		}
