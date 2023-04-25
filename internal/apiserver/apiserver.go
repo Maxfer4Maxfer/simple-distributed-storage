@@ -2,11 +2,18 @@ package apiserver
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	cm "simple-storage/internal/chunkmanager"
 	"simple-storage/internal/utils"
+)
+
+var (
+	ErrUploadCanceled   = errors.New("uploading has been canceled")
+	ErrDownloadCanceled = errors.New("downloading has been canceled")
 )
 
 type ChunkManager interface {
@@ -47,7 +54,9 @@ func New(
 	}
 }
 
-func (s *APIServer) PutObject(filename string, r io.Reader, size int64) error {
+func (s *APIServer) PutObject(
+	ctx context.Context, filename string, r io.Reader, size int64,
+) error {
 	chunks, err := s.cm.SplitIntoChunks(filename, size)
 	if err != nil {
 		return fmt.Errorf("failure to split file into chunks: %w", err)
@@ -57,6 +66,12 @@ func (s *APIServer) PutObject(filename string, r io.Reader, size int64) error {
 	buf := make([]byte, chunkSize)
 
 	for _, chunk := range chunks {
+		select {
+		case <-ctx.Done():
+			return ErrUploadCanceled
+		default:
+		}
+
 		ss := s.storageServers.get(chunk.StorageServer)
 
 		n, err := r.Read(buf)
@@ -75,7 +90,9 @@ func (s *APIServer) PutObject(filename string, r io.Reader, size int64) error {
 	return nil
 }
 
-func (s *APIServer) GetObject(filename string, w io.Writer) error {
+func (s *APIServer) GetObject(
+	ctx context.Context, filename string, w io.Writer,
+) error {
 	chunks, filesize, err := s.cm.ChunksInfo(filename)
 	if err != nil {
 		return fmt.Errorf("failure to get file's info: %w", err)
@@ -86,6 +103,12 @@ func (s *APIServer) GetObject(filename string, w io.Writer) error {
 	restsize := int(filesize)
 
 	for _, chunk := range chunks {
+		select {
+		case <-ctx.Done():
+			return ErrDownloadCanceled
+		default:
+		}
+
 		ss := s.storageServers.get(chunk.StorageServer)
 		n := min(restsize, chunksize)
 

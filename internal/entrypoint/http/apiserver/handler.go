@@ -1,19 +1,21 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"path/filepath"
+	"simple-storage/internal/apiserver"
 	lhttp "simple-storage/internal/entrypoint/http"
 	"simple-storage/internal/utils"
 )
 
 type APIServer interface {
-	PutObject(filename string, r io.Reader, size int64) error
-	GetObject(filename string, w io.Writer) error
+	PutObject(ctx context.Context, filename string, r io.Reader, size int64) error
+	GetObject(ctx context.Context, filename string, w io.Writer) error
 }
 
 type ChunkManager interface {
@@ -64,17 +66,28 @@ func (han *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	han.HandleCORS(router).ServeHTTP(w, r)
 }
 
+const (
+	StatusClientClosedRequest = 499
+)
+
 func (han *Handler) handleDownload() http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		chunkID, ok := r.URL.Query()["id"]
 		if !ok {
-			han.ResponseWithError(w, r, errors.New("id should be set"))
+			han.ResponseWithError(
+				w, r, errors.New("id should be set"), http.StatusBadRequest)
 			return
 		}
 
-		err := han.apiServer.GetObject(chunkID[0], w)
+		ctx := r.Context()
+
+		err := han.apiServer.GetObject(ctx, chunkID[0], w)
 		if err != nil {
-			han.ResponseWithError(w, r, err)
+			if errors.Is(err, apiserver.ErrDownloadCanceled) {
+				han.ResponseWithError(w, r, err, StatusClientClosedRequest)
+			} else {
+				han.ResponseWithError(w, r, err, http.StatusInternalServerError)
+			}
 
 			return
 		}
@@ -87,14 +100,20 @@ func (han *Handler) handleUpload() http.HandlerFunc {
 
 		file, header, err := r.FormFile("file")
 		if err != nil {
-			han.ResponseWithError(w, r, err)
+			han.ResponseWithError(w, r, err, http.StatusBadRequest)
 			return
 		}
 		defer file.Close()
- 
-		err = han.apiServer.PutObject(header.Filename, file, header.Size)
+
+		ctx := r.Context()
+
+		err = han.apiServer.PutObject(ctx, header.Filename, file, header.Size)
 		if err != nil {
-			han.ResponseWithError(w, r, err)
+			if errors.Is(err, apiserver.ErrUploadCanceled) {
+				han.ResponseWithError(w, r, err, StatusClientClosedRequest)
+			} else {
+				han.ResponseWithError(w, r, err, http.StatusInternalServerError)
+			}
 
 			return
 		}
@@ -109,7 +128,7 @@ func (han *Handler) handleRegister() http.HandlerFunc {
 
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			han.ResponseWithError(w, r, err)
+			han.ResponseWithError(w, r, err, http.StatusBadRequest)
 
 			return
 		}
@@ -117,13 +136,14 @@ func (han *Handler) handleRegister() http.HandlerFunc {
 		address := string(body)
 
 		if len(address) == 0 {
-			han.ResponseWithError(w, r, errors.New("address should be set"))
+			han.ResponseWithError(
+				w, r, errors.New("address should be set"), http.StatusBadRequest)
 			return
 		}
 
 		err = han.chunkManager.RegisterStorageServer(address)
 		if err != nil {
-			han.ResponseWithError(w, r, err)
+			han.ResponseWithError(w, r, err, http.StatusInternalServerError)
 
 			return
 		}
