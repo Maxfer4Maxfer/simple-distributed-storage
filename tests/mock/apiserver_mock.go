@@ -35,11 +35,11 @@ func (m *MockChunkManager) EXPECT() *MockChunkManagerMockRecorder {
 }
 
 // ChunksInfo mocks base method.
-func (m *MockChunkManager) ChunksInfo(filename string) ([]chunkmanager.Chunk, int, error) {
+func (m *MockChunkManager) ChunksInfo(filename string) ([]chunkmanager.Chunk, int64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ChunksInfo", filename)
 	ret0, _ := ret[0].([]chunkmanager.Chunk)
-	ret1, _ := ret[1].(int)
+	ret1, _ := ret[1].(int64)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -51,7 +51,7 @@ func (mr *MockChunkManagerMockRecorder) ChunksInfo(filename interface{}) *gomock
 }
 
 // SplitIntoChunks mocks base method.
-func (m *MockChunkManager) SplitIntoChunks(filename string, size int) ([]chunkmanager.Chunk, error) {
+func (m *MockChunkManager) SplitIntoChunks(filename string, size int64) ([]chunkmanager.Chunk, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SplitIntoChunks", filename, size)
 	ret0, _ := ret[0].([]chunkmanager.Chunk)

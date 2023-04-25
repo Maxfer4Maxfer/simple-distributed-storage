@@ -28,7 +28,7 @@ type storageServer struct {
 
 type file struct {
 	chunks []Chunk
-	size   int
+	size   int64
 }
 
 type ChunkManager struct {
@@ -76,7 +76,7 @@ func (cm *ChunkManager) RegisterStorageServer(address string) error {
 }
 
 func (cm *ChunkManager) SplitIntoChunks(
-	filename string, filesize int,
+	filename string, filesize int64,
 ) ([]Chunk, error) {
 	cm.Lock()
 	defer cm.Unlock()
@@ -121,7 +121,7 @@ func (cm *ChunkManager) SplitIntoChunks(
 	return chunks, nil
 }
 
-func (cm *ChunkManager) ChunksInfo(filename string) ([]Chunk, int, error) {
+func (cm *ChunkManager) ChunksInfo(filename string) ([]Chunk, int64, error) {
 	cm.Lock()
 	defer cm.Unlock()
 

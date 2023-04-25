@@ -4,7 +4,7 @@ import (
 	"math"
 )
 
-func numberOfChunks(filesize, erasureCodingFraction, maxChunkSize int) int {
+func numberOfChunks(filesize int64, erasureCodingFraction, maxChunkSize int) int {
 	chunkSize := int(math.Ceil(float64(filesize) / float64(erasureCodingFraction)))
 
 	if chunkSize < maxChunkSize {

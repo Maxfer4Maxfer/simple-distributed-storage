@@ -45,7 +45,7 @@ func TestChunkManager_SplitIntoChunks_SimpleDistribution(t *testing.T) {
 	tt := []struct {
 		storageServers        []string
 		filename              string
-		filesize              int
+		filesize              int64
 		maxChunkSizeBytes     int
 		erasureCodingFraction int
 		cChunk                int
@@ -140,9 +140,9 @@ func TestChunkManager_SplitIntoChunks_ConsistentDistribution(t *testing.T) {
 	tt := []struct {
 		storageServers        []string
 		firstFilename         string
-		firstFilesize         int
+		firstFilesize         int64
 		secondFilename        string
-		secondFilesize        int
+		secondFilesize        int64
 		maxChunkSizeBytes     int
 		erasureCodingFraction int
 		cChunk                int
